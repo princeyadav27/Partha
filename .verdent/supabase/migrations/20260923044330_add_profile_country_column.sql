@@ -1,0 +1,1 @@
+alter table candidate_profile add column if not exists country text default 'in';
