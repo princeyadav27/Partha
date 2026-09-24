@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import Logo from '../components/Logo';
 import { useReveal } from '../hooks/useReveal';
 
 const STEPS = [
@@ -113,6 +114,9 @@ export default function Landing() {
 
       <section className="closing">
         <Reveal>
+          <span className="closing-mark">
+            <Logo size={30} />
+          </span>
           <h2>Begin the search.</h2>
           <p className="closing-sub">
             One résumé. Every board. A single board of record for what happened next.

@@ -7,6 +7,10 @@ import JobDetail from './pages/JobDetail';
 import Landing from './pages/Landing';
 import Profile from './pages/Profile';
 import Saved from './pages/Saved';
+import '@fontsource-variable/instrument-sans';
+import '@fontsource-variable/fraunces';
+import '@fontsource/ibm-plex-mono/400.css';
+import '@fontsource/ibm-plex-mono/500.css';
 import './style.css';
 
 createRoot(document.getElementById('root')!).render(

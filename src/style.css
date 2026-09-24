@@ -26,9 +26,9 @@
   --shadow-card: 0 1px 2px rgba(11, 12, 10, 0.04), 0 10px 28px rgba(11, 12, 10, 0.05);
   --shadow-lift: 0 18px 44px rgba(11, 12, 10, 0.09);
 
-  --sans: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
-    Arial, sans-serif;
-  --serif: 'Fraunces', 'Iowan Old Style', Palatino, Georgia, serif;
+  --sans: 'Instrument Sans Variable', 'Instrument Sans', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --serif: 'Fraunces Variable', 'Fraunces', 'Iowan Old Style', Palatino, Georgia, serif;
   --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -140,7 +140,7 @@ body {
   color: var(--ink);
   text-decoration: none;
   font-size: 17.5px;
-  font-weight: 600;
+  font-weight: 650;
   letter-spacing: -0.02em;
 }
 
@@ -862,7 +862,7 @@ a.job-title:hover {
 
 .hero-title {
   font-family: var(--sans);
-  font-weight: 600;
+  font-weight: 650;
   font-size: clamp(42px, 7vw, 82px);
   line-height: 1.03;
   letter-spacing: -0.035em;
@@ -873,14 +873,37 @@ a.job-title:hover {
 /* the outlined, hand-selected phrase from the inspo */
 .hero-mark {
   display: inline-block;
-  color: var(--paper);
+  position: relative;
+  color: var(--surface);
   -webkit-text-stroke: 2px var(--accent);
-  text-shadow: 3px 3px 0 rgba(23, 80, 60, 0.22);
-  padding: 0.02em 0.16em;
-  margin-left: 0.08em;
-  border: 1.5px dashed var(--accent-line);
-  border-radius: 8px;
-  transform: rotate(-1.4deg);
+  text-shadow: 0.045em 0.045em 0 rgba(23, 80, 60, 0.18);
+  padding: 0.02em 0.18em;
+  margin-left: 0.1em;
+  border: 1.5px dashed rgba(30, 107, 79, 0.5);
+  border-radius: 10px;
+  transform: rotate(-1deg);
+}
+
+/* selection-marquee corner handles, as in the inspo */
+.hero-mark::before,
+.hero-mark::after {
+  content: '';
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  background: var(--paper);
+  border: 1.5px solid var(--accent);
+  border-radius: 2px;
+}
+
+.hero-mark::before {
+  top: -5px;
+  left: -5px;
+}
+
+.hero-mark::after {
+  bottom: -5px;
+  right: -5px;
 }
 
 @supports not (-webkit-text-stroke: 1px #000) {
@@ -893,7 +916,7 @@ a.job-title:hover {
   font-size: clamp(15.5px, 1.6vw, 18px);
   line-height: 1.65;
   color: var(--ink-soft);
-  max-width: 56ch;
+  max-width: min(620px, 100%);
   margin: 0 auto 38px;
 }
 
@@ -908,10 +931,11 @@ a.job-title:hover {
   background: var(--surface);
   color: var(--accent-deep);
   border: 1.5px solid var(--accent-deep);
-  border-radius: 10px;
-  padding: 13px 24px;
-  font-size: 15px;
+  border-radius: 12px;
+  padding: 12px 22px;
+  font-size: 14.5px;
   font-weight: 600;
+  letter-spacing: -0.005em;
   box-shadow: 3px 3px 0 var(--accent-deep);
 }
 
@@ -921,14 +945,20 @@ a.job-title:hover {
   box-shadow: 4px 4px 0 var(--accent-deep);
 }
 
+.btn-hero:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--accent-deep);
+}
+
 .btn-hero-quiet {
   background: var(--surface);
   color: var(--ink);
   border: 1px solid var(--hairline);
-  border-radius: 10px;
-  padding: 13px 24px;
-  font-size: 15px;
+  border-radius: 12px;
+  padding: 12px 22px;
+  font-size: 14.5px;
   font-weight: 500;
+  letter-spacing: -0.005em;
   box-shadow: 3px 3px 0 rgba(16, 20, 19, 0.1);
 }
 
@@ -936,6 +966,11 @@ a.job-title:hover {
   border-color: var(--muted);
   transform: translate(-1px, -1px);
   box-shadow: 4px 4px 0 rgba(16, 20, 19, 0.12);
+}
+
+.btn-hero-quiet:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 rgba(16, 20, 19, 0.12);
 }
 
 .hero-proofs {
@@ -1122,6 +1157,13 @@ a.job-title:hover {
   padding: clamp(36px, 6vh, 76px) 0 clamp(56px, 9vh, 110px);
 }
 
+.closing-mark {
+  display: inline-flex;
+  color: var(--accent-deep);
+  margin-bottom: 20px;
+  opacity: 0.9;
+}
+
 .closing h2 {
   font-size: clamp(30px, 5vw, 52px);
   letter-spacing: -0.03em;
@@ -1131,7 +1173,7 @@ a.job-title:hover {
 .closing-sub {
   color: var(--ink-soft);
   margin: 0 auto 32px;
-  max-width: 46ch;
+  max-width: min(520px, 100%);
   font-size: 15.5px;
 }
 
