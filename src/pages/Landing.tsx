@@ -6,7 +6,7 @@ const STEPS = [
   {
     n: '01',
     title: 'Bring your story',
-    body: 'Upload a résumé once. Everything downstream is tuned to your experience — no forms, no templates, no re-typing your life.',
+    body: 'Upload a resume once. Everything downstream is tuned to your experience — no forms, no templates, no re-typing your life.',
   },
   {
     n: '02',
@@ -36,7 +36,7 @@ export default function Landing() {
           <Reveal>
             <Link className="hero-badge" to="/profile">
               <span className="badge-new">New</span>
-              <span>Partha now reads your résumé for you</span>
+              <span>Partha now reads your resume for you</span>
               <span className="badge-arrow" aria-hidden="true">
                 ›
               </span>
@@ -53,14 +53,14 @@ export default function Landing() {
 
           <Reveal delay={220}>
             <p className="hero-sub">
-              One résumé in. Every board out. Only the roles worth your aim.
+              One resume in. Every board out. Only the roles worth your aim.
             </p>
           </Reveal>
 
           <Reveal delay={330}>
             <div className="hero-actions">
               <Link className="btn btn-hero" to="/profile">
-                Start with your résumé
+                Start with your resume
               </Link>
               <Link className="btn btn-hero-quiet" to="/jobs">
                 Browse live jobs
@@ -120,7 +120,7 @@ export default function Landing() {
             Upload once — Partha keeps every application on target from there.
           </p>
           <Link className="btn btn-hero" to="/profile">
-            Upload your résumé
+            Upload your resume
           </Link>
         </Reveal>
       </section>
