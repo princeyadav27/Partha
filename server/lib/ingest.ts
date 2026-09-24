@@ -98,9 +98,26 @@ function mergeSourceRefs(existing: unknown, refs: SourceRef[]): SourceRef[] {
  * Ingests provider results into the normalized job store (dedupe across providers,
  * provenance preserved) and returns the rows ingested during this run.
  */
-async function ingest(outcomes: SourceOutcome[], supabase: SupabaseClient): Promise<NormalizedJobRow[]> {
+async function ingest(
+  outcomes: SourceOutcome[],
+  supabase: SupabaseClient | null,
+): Promise<NormalizedJobRow[]> {
   const rows: NormalizedJobRow[] = [];
   const now = new Date().toISOString();
+  if (!supabase) {
+    // Demo mode: no database. Dedupe in process memory and hand the rows
+    // straight back so live browsing still works end to end.
+    const seen = new Set<string>();
+    for (const outcome of outcomes) {
+      for (const job of outcome.jobs) {
+        const key = dedupeKeyFor(job);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        rows.push({ ...job, id: `demo-${key}`, dedupe_key: key, fetched_at: now } as NormalizedJobRow);
+      }
+    }
+    return rows;
+  }
   for (const outcome of outcomes) {
     for (const job of outcome.jobs) {
       const dedupeKey = dedupeKeyFor(job);
@@ -196,11 +213,11 @@ export function matchesRoles(title: string, roles: string[]): boolean {
  * would silently make this fallback return nothing at all.
  */
 async function storeFallback(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient | null,
   needed: boolean,
   criteria: SearchCriteria,
 ): Promise<NormalizedJobRow[]> {
-  if (!needed) return [];
+  if (!needed || !supabase) return [];
   const { data, error } = await supabase
     .from('jobs')
     .select(JOB_COLUMNS)
@@ -263,7 +280,10 @@ function applyHardFilters(rows: NormalizedJobRow[], criteria: SearchCriteria): {
   return { kept, warnings };
 }
 
-export async function runSearch(criteria: SearchCriteria, supabase: SupabaseClient): Promise<SearchResult> {
+export async function runSearch(
+  criteria: SearchCriteria,
+  supabase: SupabaseClient | null,
+): Promise<SearchResult> {
   const outcomes = await Promise.all(sources.map((s) => runSource(s, criteria)));
 
   const warnings: string[] = [];

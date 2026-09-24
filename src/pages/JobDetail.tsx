@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api';
+import { bannerTone } from '../api';
 import type { Job, JobMatch, JobRequirements } from '../types';
 import { postedAge, RemoteBadge, EMPLOYMENT_LABELS } from './FindJobs';
 
@@ -113,7 +114,7 @@ export default function JobDetail() {
         </p>
       </div>
 
-      {error && <div className="banner banner-error">{error}</div>}
+      {error && <div className={`banner ${bannerTone(error)}`}>{error}</div>}
       {requirementsWarning && <div className="banner">{requirementsWarning}</div>}
 
       <div className="actions sticky-actions">

@@ -43,3 +43,13 @@ export const api = {
     request<T>(path, { method: 'PATCH', body: JSON.stringify(body ?? {}) }),
   del: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 };
+
+/**
+ * Configuration notices (demo mode, missing keys) are informational, not
+ * failures — render them in the calm tone instead of the alarming red one.
+ */
+export function bannerTone(message: string): 'banner-demo' | 'banner-error' {
+  return /^demo mode|not configured|not connected/i.test(message.trim())
+    ? 'banner-demo'
+    : 'banner-error';
+}

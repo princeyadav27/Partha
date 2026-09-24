@@ -1,7 +1,10 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import Logo from './Logo';
 
 export default function Layout() {
+  const { pathname } = useLocation();
+  const isLanding = pathname === '/';
+
   return (
     <div className="frame">
       <div className="panel">
@@ -24,7 +27,13 @@ export default function Layout() {
         </header>
 
         <main className="page">
-          <Outlet />
+          {isLanding ? (
+            <Outlet />
+          ) : (
+            <div className="container">
+              <Outlet />
+            </div>
+          )}
         </main>
 
         <footer className="site-footer">

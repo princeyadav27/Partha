@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
+import { bannerTone } from '../api';
 import type { SavedJob } from '../types';
 import { postedAge, RemoteBadge } from './FindJobs';
 
@@ -47,7 +48,7 @@ export default function Saved() {
         <p className="lede">Jobs you flagged to come back to. Track progress in Applications.</p>
       </div>
 
-      {error && <div className="banner banner-error">{error}</div>}
+      {error && <div className={`banner ${bannerTone(error)}`}>{error}</div>}
 
       {saved.length === 0 ? (
         <div className="card">

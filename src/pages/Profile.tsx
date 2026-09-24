@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
+import { bannerTone } from '../api';
 import type { Analysis, Profile as ProfileType, Resume } from '../types';
 
 type Phase = 'loading' | 'upload' | 'review_text' | 'draft' | 'view' | 'edit';
@@ -220,7 +221,7 @@ export default function Profile() {
         </p>
       </div>
 
-      {error && <div className="banner banner-error">{error}</div>}
+      {error && <div className={`banner ${bannerTone(error)}`}>{error}</div>}
       {notice && <div className="banner banner-ok">{notice}</div>}
 
       {phase === 'upload' && (

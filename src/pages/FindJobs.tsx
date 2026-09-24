@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
+import { bannerTone } from '../api';
 import type { Job, Profile } from '../types';
 
 export function postedAge(postedAt: string | null): string {
@@ -271,7 +272,7 @@ export default function FindJobs() {
         </div>
       </section>
 
-      {error && <div className="banner banner-error">{error}</div>}
+      {error && <div className={`banner ${bannerTone(error)}`}>{error}</div>}
       {warnings.length > 0 && (
         <div className="banner">
           {warnings.map((w, i) => (

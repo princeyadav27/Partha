@@ -503,6 +503,12 @@ select.input {
   color: var(--danger);
 }
 
+.banner-demo {
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+
 .banner-ok {
   border-left-color: var(--accent);
   background: var(--ok-soft);
