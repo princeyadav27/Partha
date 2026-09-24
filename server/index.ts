@@ -27,6 +27,30 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
+/**
+ * Nothing client-bound may carry a credential. Provider error bodies are
+ * forwarded into `error`/`warning` messages and some providers echo request
+ * details back, so known secret values are stripped before responding.
+ * Full, unredacted detail still reaches the server log.
+ */
+const REDACT_VALUES = [
+  process.env.OPENROUTER_API_KEY,
+  process.env.NVIDIA_API_KEY,
+  process.env.ADZUNA_APP_KEY,
+  process.env.ADZUNA_APP_ID,
+  process.env.SUPABASE_PUBLISHABLE_KEY,
+  process.env.SUPABASE_URL,
+].filter((value): value is string => Boolean(value && value.length >= 6));
+
+function redact(text: string): string {
+  let out = text;
+  for (const value of REDACT_VALUES) out = out.split(value).join('[redacted]');
+  // Supabase keys are JWTs; provider keys are long prefixed opaque strings.
+  out = out.replace(/\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g, '[redacted]');
+  out = out.replace(/\b(?:sk|pk|rk|ghp)-[A-Za-z0-9_-]{16,}\b/g, '[redacted]');
+  return out;
+}
+
 function requireDb(res: express.Response): boolean {
   if (!dbConfigured() || !getSupabase()) {
     res.status(503).json({ error: 'Database is not configured. Set SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY.' });
@@ -70,7 +94,7 @@ app.post('/api/resume', upload.single('file'), async (req, res) => {
     if (error) throw new Error(error.message);
     res.json({ resume: data });
   } catch (error) {
-    res.status(400).json({ error: (error as Error).message });
+    res.status(400).json({ error: redact((error as Error).message) });
   }
 });
 
@@ -83,7 +107,7 @@ app.get('/api/resume/latest', async (_req, res) => {
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return res.status(500).json({ error: redact(error.message) });
   res.json({ resume: data });
 });
 
@@ -96,7 +120,7 @@ app.patch('/api/resume/:id', async (req, res) => {
     .from('resumes')
     .update({ extracted_text: text })
     .eq('id', req.params.id);
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return res.status(500).json({ error: redact(error.message) });
   res.json({ ok: true });
 });
 
@@ -108,7 +132,7 @@ app.post('/api/resume/:id/analyze', async (req, res) => {
     .select('id, extracted_text')
     .eq('id', req.params.id)
     .maybeSingle();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return res.status(500).json({ error: redact(error.message) });
   if (!resume) return res.status(404).json({ error: 'Resume not found.' });
   if (!aiConfigured()) {
     return res.status(503).json({ error: 'AI analysis is not configured. Add OPENROUTER_API_KEY or NVIDIA_API_KEY in project Secrets.' });
@@ -125,7 +149,8 @@ app.post('/api/resume/:id/analyze', async (req, res) => {
     res.json({ analysis, provider });
   } catch (error) {
     await supabase.from('resumes').update({ analysis_status: 'failed' }).eq('id', resume.id);
-    res.status(502).json({ error: `Resume analysis failed: ${(error as Error).message}` });
+    console.error('[resume-analysis] failed:', (error as Error).message);
+    res.status(502).json({ error: redact(`Resume analysis failed: ${(error as Error).message}`) });
   }
 });
 
@@ -140,7 +165,7 @@ app.get('/api/profile', async (_req, res) => {
     .order('updated_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return res.status(500).json({ error: redact(error.message) });
   res.json({ profile: data });
 });
 
@@ -173,13 +198,13 @@ app.put('/api/profile', async (req, res) => {
   const { data, error } = existing
     ? await supabase.from('candidate_profile').update(row).eq('id', existing.id).select().single()
     : await supabase.from('candidate_profile').insert(row).select().single();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return res.status(500).json({ error: redact(error.message) });
   res.json({ profile: data });
 });
 
 /* ----------------------------------- jobs ---------------------------------- */
 
-const jobColumns = 'id, source, source_job_id, title, company, description, location, country, remote_status, employment_type, posted_at, source_url, created_at';
+const jobColumns = 'id, source, source_job_id, title, company, description, location, country, remote_status, employment_type, posted_at, expires_at, source_url, created_at';
 
 const WORK_MODES = new Set(['any', 'remote', 'hybrid', 'onsite']);
 const EMPLOYMENT_TYPES = new Set(['full_time', 'part_time', 'contract', 'internship']);
@@ -229,9 +254,17 @@ app.post('/api/jobs/search', async (req, res) => {
       sources_failed: result.sources_failed,
     });
   } catch (error) {
-    res.status(502).json({ error: (error as Error).message });
+    res.status(502).json({ error: redact((error as Error).message) });
   }
 });
+
+/**
+ * Failed parses are remembered so a posting the model cannot parse is not
+ * re-billed on every page view. Successful results live in the database; only
+ * failures need this in-process cache.
+ */
+const PARSE_FAILURE_TTL_MS = 10 * 60 * 1000;
+const parseFailures = new Map<string, { at: number; error: string }>();
 
 async function ensureRequirements(jobId: string): Promise<JobRequirements | null | 'unconfigured' | { error: string }> {
   const supabase = getSupabase()!;
@@ -240,7 +273,14 @@ async function ensureRequirements(jobId: string): Promise<JobRequirements | null
     .select('requirements')
     .eq('job_id', jobId)
     .maybeSingle();
-  if (cached && !isEmptyRequirements(cached.requirements)) return cached.requirements as JobRequirements;
+  if (cached && !isEmptyRequirements(cached.requirements)) {
+    parseFailures.delete(jobId);
+    return cached.requirements as JobRequirements;
+  }
+  const recentFailure = parseFailures.get(jobId);
+  if (recentFailure && Date.now() - recentFailure.at < PARSE_FAILURE_TTL_MS) {
+    return { error: recentFailure.error };
+  }
   if (!aiConfigured()) return 'unconfigured';
   const { data: job } = await supabase.from('jobs').select('title, description').eq('id', jobId).maybeSingle();
   if (!job) return null;
@@ -254,12 +294,17 @@ async function ensureRequirements(jobId: string): Promise<JobRequirements | null
     (e) => ({ data: null, error: (e as Error).message }),
   );
   if (error || !parsed) {
-    console.error(`[job-requirements] parse failed for job ${jobId}: ${error}`);
-    return { error: error ?? 'Unknown parse failure' };
+    const message = error ?? 'Unknown parse failure';
+    console.error(`[job-requirements] parse failed for job ${jobId}: ${message}`);
+    parseFailures.set(jobId, { at: Date.now(), error: message });
+    return { error: message };
   }
   if (isEmptyRequirements(parsed)) {
-    return { error: 'Parsed requirements were empty — try again' };
+    const message = 'Parsed requirements were empty — try again';
+    parseFailures.set(jobId, { at: Date.now(), error: message });
+    return { error: message };
   }
+  parseFailures.delete(jobId);
   await supabase.from('job_requirements').upsert({ job_id: jobId, requirements: parsed }, { onConflict: 'job_id' });
   return parsed;
 }
@@ -278,14 +323,16 @@ app.get('/api/jobs/:id', async (req, res) => {
   if (!requireDb(res)) return;
   const supabase = getSupabase()!;
   const { data: job, error } = await supabase.from('jobs').select('*').eq('id', req.params.id).maybeSingle();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return res.status(500).json({ error: redact(error.message) });
   if (!job) return res.status(404).json({ error: 'Job not found.' });
   let requirements = null;
   let requirements_warning: string | null = null;
   try {
     const result = await ensureRequirements(job.id);
     if (typeof result === 'object' && result !== null && 'error' in result) {
-      requirements_warning = `Automatic parsing failed for this posting (${result.error.slice(0, 160)}). You can still read the original description.`;
+      requirements_warning = redact(
+        `Automatic parsing failed for this posting (${result.error.slice(0, 160)}). You can still read the original description.`,
+      );
     } else if (result === 'unconfigured') {
       requirements_warning = 'AI parsing is not configured. Add an AI provider key in project Secrets.';
     } else if (result === null) {
@@ -333,13 +380,16 @@ app.post('/api/jobs/:id/match', async (req, res) => {
     (r) => ({ data: r.data, error: null as string | null }),
     (e) => ({ data: null, error: (e as Error).message }),
   );
-  if (error || !match) return res.status(502).json({ error: `Matching failed: ${error}` });
+  if (error || !match) {
+    console.error(`[match] failed for job ${job.id}: ${error}`);
+    return res.status(502).json({ error: redact(`Matching failed: ${error}`) });
+  }
   const { data: saved, error: saveError } = await supabase
     .from('job_matches')
     .upsert({ job_id: job.id, match, summary: match.summary }, { onConflict: 'job_id' })
     .select()
     .single();
-  if (saveError) return res.status(500).json({ error: saveError.message });
+  if (saveError) return res.status(500).json({ error: redact(saveError.message) });
   res.json({ match: saved });
 });
 
@@ -351,7 +401,7 @@ app.get('/api/jobs/:id/match', async (req, res) => {
     .select('*')
     .eq('job_id', req.params.id)
     .maybeSingle();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return res.status(500).json({ error: redact(error.message) });
   res.json({ match: data });
 });
 
@@ -366,7 +416,7 @@ app.get('/api/saved', async (_req, res) => {
     .from('saved_jobs')
     .select(savedColumns)
     .order('created_at', { ascending: false });
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return res.status(500).json({ error: redact(error.message) });
   res.json({ saved: data ?? [] });
 });
 
@@ -378,7 +428,7 @@ app.post('/api/saved', async (req, res) => {
   const { data: existing } = await supabase.from('saved_jobs').select('id').eq('job_id', jobId).maybeSingle();
   if (existing) return res.json({ saved: existing, already_saved: true });
   const { data, error } = await supabase.from('saved_jobs').insert({ job_id: jobId }).select().single();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return res.status(500).json({ error: redact(error.message) });
   await supabase.from('application_events').insert({ saved_job_id: data.id, event_type: 'saved', detail: {} });
   res.json({ saved: data });
 });
@@ -396,7 +446,7 @@ app.patch('/api/saved/:id', async (req, res) => {
     .select('*')
     .eq('id', req.params.id)
     .maybeSingle();
-  if (fetchError) return res.status(500).json({ fetchError: fetchError.message });
+  if (fetchError) return res.status(500).json({ error: redact(fetchError.message) });
   if (!current) return res.status(404).json({ error: 'Saved job not found.' });
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
   const events: { event_type: string; detail: Record<string, unknown> }[] = [];
@@ -420,7 +470,7 @@ app.patch('/api/saved/:id', async (req, res) => {
     .eq('id', req.params.id)
     .select('id, job_id, status, notes, applied_at, follow_up_date, created_at, updated_at')
     .single();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return res.status(500).json({ error: redact(error.message) });
   if (events.length) {
     await supabase.from('application_events').insert(events.map((e) => ({ saved_job_id: data.id, ...e })));
   }
@@ -431,7 +481,7 @@ app.delete('/api/saved/:id', async (req, res) => {
   if (!requireDb(res)) return;
   const supabase = getSupabase()!;
   const { error } = await supabase.from('saved_jobs').delete().eq('id', req.params.id);
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return res.status(500).json({ error: redact(error.message) });
   res.json({ ok: true });
 });
 
@@ -443,18 +493,49 @@ app.get('/api/saved/:id/events', async (req, res) => {
     .select('*')
     .eq('saved_job_id', req.params.id)
     .order('created_at', { ascending: false });
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return res.status(500).json({ error: redact(error.message) });
   res.json({ events: data ?? [] });
 });
 
 /* ------------------------------ static frontend ---------------------------- */
 
 const distDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../dist');
+
 app.use(express.static(distDir));
-const indexHtml = fs.readFileSync(path.join(distDir, 'index.html'));
+
+let cachedIndexHtml: Buffer | null = null;
+
+/**
+ * Read lazily rather than at module scope: a missing `dist/` must not prevent
+ * the API from booting (`npm run dev:api` before a first `npm run build`).
+ */
+function indexHtml(): Buffer | null {
+  if (cachedIndexHtml) return cachedIndexHtml;
+  try {
+    cachedIndexHtml = fs.readFileSync(path.join(distDir, 'index.html'));
+    return cachedIndexHtml;
+  } catch {
+    return null;
+  }
+}
+
+// Unknown /api routes must answer with JSON, not the SPA fallback HTML.
+app.use('/api', (_req, res) => {
+  res.status(404).json({ error: 'Unknown API route.' });
+});
+
 app.use((req, res, next) => {
   if (req.method !== 'GET' || req.path.startsWith('/api/')) return next();
-  res.type('html').send(indexHtml);
+  const html = indexHtml();
+  if (!html) {
+    return res
+      .status(503)
+      .type('html')
+      .send(
+        '<h1>Frontend is not built yet</h1><p>Run <code>npm run build</code> (or <code>npm run dev</code> for the Vite dev server), then reload.</p>',
+      );
+  }
+  res.type('html').send(html);
 });
 
 const PORT = Number(process.env.PORT) || 8080;

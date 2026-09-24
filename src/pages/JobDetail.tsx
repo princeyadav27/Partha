@@ -192,9 +192,14 @@ export default function JobDetail() {
           <p className="muted">
             Parsed from the job description. Only requirements stated in the posting are listed.
           </p>
-          {requirements.experience_required?.note && (
+          {requirements.experience_requirements && (
             <p>
-              <strong>Experience:</strong> {requirements.experience_required.note}
+              <strong>Experience:</strong> {requirements.experience_requirements}
+            </p>
+          )}
+          {requirements.education_requirements && (
+            <p>
+              <strong>Education:</strong> {requirements.education_requirements}
             </p>
           )}
           {requirements.seniority && (
@@ -209,6 +214,18 @@ export default function JobDetail() {
                 {requirements.required_skills.map((s, i) => (
                   <span key={i} className="chip chip-static" title={s.evidence ?? undefined}>
                     {s.name}
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
+          {requirements.technologies && requirements.technologies.length > 0 && (
+            <>
+              <h3>Technologies</h3>
+              <div className="chips">
+                {requirements.technologies.map((t, i) => (
+                  <span key={i} className="chip chip-static">
+                    {t}
                   </span>
                 ))}
               </div>

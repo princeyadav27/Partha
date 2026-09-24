@@ -19,6 +19,8 @@ createRoot(document.getElementById('root')!).render(
         <Route path="/saved" element={<Saved />} />
         <Route path="/applications" element={<Applications />} />
         <Route path="/profile" element={<Profile />} />
+        {/* The landing page CTAs link here; the résumé upload lives on Profile. */}
+        <Route path="/resume" element={<Navigate to="/profile" replace />} />
         <Route path="*" element={<Navigate to="/jobs" replace />} />
       </Route>
     </Routes>

@@ -1,6 +1,17 @@
 node_modules/
 dist/
 dist-server/
+
+# Secrets. `.env.example` is documentation and stays tracked; every other
+# .env variant is local-only. Server-only keys (SUPABASE_PUBLISHABLE_KEY,
+# ADZUNA_APP_KEY, OPENROUTER_API_KEY, NVIDIA_API_KEY) must never be committed
+# and must never be given a VITE_ prefix — see server/lib/supabase.ts.
 .env
-.env.local
+.env.*
+!.env.example
+*.pem
+*.key
+
 *.local
+.tmp-*
+*.tsbuildinfo

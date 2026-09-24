@@ -69,6 +69,18 @@ export default function FindJobs() {
   const [sourcesUsed, setSourcesUsed] = useState<string[]>([]);
   const [jobs, setJobs] = useState<Job[] | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+
+  // Seed which jobs are already saved so the Save button reflects real state,
+  // including jobs saved in an earlier session.
+  useEffect(() => {
+    api
+      .get<{ saved: { job_id: string }[] }>('/api/saved')
+      .then(({ saved }) => setSavedIds(new Set((saved ?? []).map((s) => s.job_id))))
+      .catch(() => {
+        /* non-fatal: saving still works, the button just cannot show prior state */
+      });
+  }, []);
 
   useEffect(() => {
     api
@@ -116,7 +128,7 @@ export default function FindJobs() {
     setError(null);
     try {
       await api.post('/api/saved', { job_id: jobId });
-      setJobs((prev) => prev?.map((j) => (j.id === jobId ? { ...j, saved: true } as Job : j)) ?? prev);
+      setSavedIds((prev) => new Set(prev).add(jobId));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -311,9 +323,9 @@ export default function FindJobs() {
                   <button
                     className="btn"
                     onClick={() => save(job.id)}
-                    disabled={savingId === job.id}
+                    disabled={savingId === job.id || savedIds.has(job.id)}
                   >
-                    {savingId === job.id ? 'Saving…' : 'Save'}
+                    {savedIds.has(job.id) ? 'Saved' : savingId === job.id ? 'Saving…' : 'Save'}
                   </button>
                   <Link className="btn btn-ghost" to={`/jobs/${job.id}`}>
                     Why it fits

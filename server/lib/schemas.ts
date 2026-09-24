@@ -192,6 +192,26 @@ export const JobRequirementsSchema = z.object({
   location_requirements: z.string().nullish(),
   employment_type: z.string().nullish(),
   seniority: z.string().nullish(),
+  // The parser prompt asks for technologies; without this key zod stripped them
+  // and the parsed values never reached the database or the UI.
+  technologies: z
+    .preprocess(
+      (value) =>
+        Array.isArray(value)
+          ? value
+              .map((item) =>
+                typeof item === 'string'
+                  ? item.trim()
+                  : item && typeof (item as { name?: unknown }).name === 'string'
+                    ? (item as { name: string }).name.trim()
+                    : '',
+              )
+              .filter(Boolean)
+              .slice(0, 30)
+          : [],
+      z.array(z.string()).default([]),
+    )
+    .default([]),
 });
 export type JobRequirements = z.infer<typeof JobRequirementsSchema>;
 

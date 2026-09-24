@@ -1,0 +1,43 @@
+# Docker build context allowlist/denylist.
+#
+# Without this file the Dockerfile's `COPY . .` copies the developer's `.env`
+# into the build-stage image layer. Even though the runtime stage only copies
+# dist/ and dist-server/, the build-stage layer still contains the plaintext
+# secrets and is recoverable from any pushed image (`docker history`, layer
+# extraction). Never let credentials into the build context.
+
+# --- secrets: never enter the build context ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+
+# --- dependency + build output (regenerated inside the image) ---
+node_modules/
+dist/
+dist-server/
+*.tsbuildinfo
+
+# --- version control ---
+.git/
+.gitignore
+.gitattributes
+
+# --- local/temp artifacts ---
+.tmp-*
+.tmp/
+*.log
+npm-debug.log*
+
+# --- editor / OS noise ---
+.vscode/
+.idea/
+.DS_Store
+
+# --- this file and other docker files need not be in the context ---
+Dockerfile
+.dockerignore

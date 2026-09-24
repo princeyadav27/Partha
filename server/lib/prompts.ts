@@ -18,7 +18,7 @@ Rules:
 - Include "evidence": a short verbatim quote from the description for each skill and responsibility.
 - Each skill object must use the key "name" (string) and may include "evidence". Each responsibility object must use the key "text" (string).
 - If a field is not present in the description, use null or an empty array.
-- The JSON object must contain all of these keys (use [] or null when absent): required_skills, preferred_skills, responsibilities, experience_requirements, education_requirements, seniority, employment_type, location_requirements, technologies.
+- The JSON object must contain all of these keys (use [] or null when absent): required_skills, preferred_skills, responsibilities, experience_requirements, education_requirements, seniority, employment_type, location_requirements.
 - seniority: only if explicitly or unambiguously indicated (e.g. "Senior", "Lead", "Intern").
 - Respond with a single JSON object and no commentary.`;
 
