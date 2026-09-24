@@ -53,9 +53,7 @@ export default function Landing() {
 
           <Reveal delay={220}>
             <p className="hero-sub">
-              Partha pulls live roles from every board you care about, matches each one against
-              your résumé with reasons you can actually read, and keeps the whole hunt on one
-              quiet, honest page.
+              One résumé in. Every board out. Only the roles worth your aim.
             </p>
           </Reveal>
 
@@ -119,10 +117,10 @@ export default function Landing() {
           </span>
           <h2>Begin the search.</h2>
           <p className="closing-sub">
-            One résumé. Every board. A single board of record for what happened next.
+            Upload once — Partha keeps every application on target from there.
           </p>
           <Link className="btn btn-hero" to="/profile">
-            Upload résumé
+            Upload your résumé
           </Link>
         </Reveal>
       </section>
