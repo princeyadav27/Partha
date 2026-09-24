@@ -84,21 +84,29 @@ export interface Job {
   remote_status: string;
   employment_type: string | null;
   posted_at: string | null;
+  expires_at?: string | null;
   source_url: string;
   created_at: string;
   match_summary?: string | null;
 }
 
+/**
+ * Mirrors JobRequirementsSchema in server/lib/schemas.ts exactly — the server is
+ * the source of truth for this shape, and zod strips any key not listed there.
+ * Keep the two in sync: a field the server does not emit will always be
+ * undefined here, which silently hides UI rather than failing loudly.
+ */
 export interface JobRequirements {
+  job_title?: string | null;
   required_skills: Skill[];
   preferred_skills: Skill[];
   responsibilities: { text: string; evidence?: string | null }[];
-  experience_required?: { min_years?: number | null; note?: string | null; evidence?: string | null } | null;
-  education?: { note?: string | null; evidence?: string | null } | null;
-  seniority?: string | null;
-  employment_type?: string | null;
+  experience_requirements?: string | null;
+  education_requirements?: string | null;
   location_requirements?: string | null;
-  technologies: string[];
+  employment_type?: string | null;
+  seniority?: string | null;
+  technologies?: string[];
 }
 
 export interface JobMatch {

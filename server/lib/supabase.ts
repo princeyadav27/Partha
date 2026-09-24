@@ -1,14 +1,16 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-const url =
-  process.env.SUPABASE_URL?.trim() ||
-  process.env.VITE_SUPABASE_URL?.trim() ||
-  '';
-const key =
-  process.env.SUPABASE_PUBLISHABLE_KEY?.trim() ||
-  process.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() ||
-  process.env.VITE_SUPABASE_ANON_KEY?.trim() ||
-  '';
+/**
+ * Server-side Supabase credentials only.
+ *
+ * These values are read from `process.env` at runtime inside the Node server, so
+ * they are never part of the client bundle. Do NOT rename them with a `VITE_`
+ * prefix: Vite statically inlines every `VITE_*` variable it can see into the
+ * public JavaScript served to browsers, which would publish the key.
+ * (Verified: a `VITE_` value referenced from src/ appears verbatim in dist/assets/*.js.)
+ */
+const url = process.env.SUPABASE_URL?.trim() ?? '';
+const key = process.env.SUPABASE_PUBLISHABLE_KEY?.trim() ?? '';
 
 let client: SupabaseClient | null = null;
 

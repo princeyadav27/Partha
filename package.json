@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "dev:api": "tsx watch server/index.ts",
-    "build": "tsc -b && vite build && node build-server.mjs",
+    "build": "tsc -b && tsc -p tsconfig.server.json && vite build && node build-server.mjs",
     "typecheck:server": "tsc -p tsconfig.server.json",
     "start": "node dist-server/index.mjs",
     "preview": "vite preview --host 0.0.0.0"

@@ -14,11 +14,40 @@ export interface NormalizedJobRow extends NormalizedJob {
   fetched_at: string | null;
 }
 
-const JOB_COLUMNS = 'id, source, source_job_id, title, company, description, location, country, remote_status, employment_type, posted_at, source_url, fetched_at';
+const JOB_COLUMNS = 'id, source, source_job_id, title, company, description, location, country, remote_status, employment_type, posted_at, expires_at, source_url, fetched_at';
 
-/** Per-provider throttle: skip external fetch if this provider was fetched recently. */
+/**
+ * Per-provider, per-criteria throttle: skip the external fetch only when this
+ * exact search was already run recently. Keying on the provider alone would
+ * make a changed role/country silently reuse the previous query's results.
+ */
 const THROTTLE_MS = 5 * 60 * 1000;
+const MAX_THROTTLE_ENTRIES = 200;
 const lastFetchAt = new Map<string, number>();
+
+function criteriaKey(criteria: SearchCriteria): string {
+  return JSON.stringify({
+    roles: [...criteria.roles].map((r) => r.trim().toLowerCase()).sort(),
+    countries: [...criteria.countries].sort(),
+    location: (criteria.location ?? '').trim().toLowerCase(),
+    workMode: criteria.workMode,
+    employmentTypes: [...criteria.employmentTypes].sort(),
+    postedWithinDays: criteria.postedWithinDays,
+  });
+}
+
+function throttleKey(sourceName: string, criteria: SearchCriteria): string {
+  return `${sourceName}::${criteriaKey(criteria)}`;
+}
+
+function markFetched(key: string): void {
+  // Bound the map so a long-lived process cannot grow it without limit.
+  if (lastFetchAt.size >= MAX_THROTTLE_ENTRIES) {
+    const oldest = [...lastFetchAt.entries()].sort((a, b) => a[1] - b[1])[0];
+    if (oldest) lastFetchAt.delete(oldest[0]);
+  }
+  lastFetchAt.set(key, Date.now());
+}
 
 interface SourceOutcome {
   name: string;
@@ -34,13 +63,14 @@ async function runSource(source: (typeof sources)[number], criteria: SearchCrite
   if (!source.configured()) {
     return { ...base, ok: true, skipped: 'not_configured' };
   }
-  const last = lastFetchAt.get(source.name) ?? 0;
+  const key = throttleKey(source.name, criteria);
+  const last = lastFetchAt.get(key) ?? 0;
   if (Date.now() - last < THROTTLE_MS) {
     return { ...base, ok: true, skipped: 'throttled' };
   }
   try {
     const jobs = await source.search(criteria);
-    lastFetchAt.set(source.name, Date.now());
+    markFetched(key);
     return { ...base, ok: true, jobs };
   } catch (error) {
     return { ...base, ok: false, error: (error as Error).message };
@@ -119,14 +149,65 @@ async function ingest(outcomes: SourceOutcome[], supabase: SupabaseClient): Prom
   return rows;
 }
 
-async function storeFallback(supabase: SupabaseClient, needed: boolean): Promise<NormalizedJobRow[]> {
+/** Words too generic to identify a role on their own when matching stored jobs. */
+const ROLE_STOPWORDS = new Set([
+  'and', 'or', 'the', 'for', 'with', 'from', 'into', 'of', 'in', 'to', 'at', 'as',
+  'on', 'by', 'an', 'junior', 'senior', 'lead', 'staff', 'principal', 'entry',
+  'level', 'mid', 'associate', 'intern', 'graduate',
+]);
+
+function words(text: string): string[] {
+  return text.toLowerCase().split(/[^a-z0-9+#.]+/).filter(Boolean);
+}
+
+/**
+ * Whether a stored job title plausibly belongs to one of the requested roles:
+ * the full phrase appears, or every significant word of the role appears in the
+ * title. Requiring all words keeps "AI Engineer" from matching "Civil Engineer"
+ * while still catching "Engineer, AI Platform".
+ *
+ * Words are matched whole (plus a plural "s") rather than as substrings, so the
+ * two-letter "ai" cannot match "Airline" and "qa" cannot match "quality".
+ * Note the 2-character minimum: "ai", "ml", "qa", "ui", "go" and "c++" are all
+ * meaningful role words.
+ */
+export function matchesRoles(title: string, roles: string[]): boolean {
+  if (roles.length === 0) return true;
+  const titleLower = title.toLowerCase();
+  const titleWords = new Set(words(title));
+  const hasWord = (word: string) => titleWords.has(word) || titleWords.has(`${word}s`);
+
+  return roles.some((role) => {
+    const phrase = role.trim().toLowerCase();
+    if (!phrase) return false;
+    if (titleLower.includes(phrase)) return true;
+    const significant = words(phrase).filter((word) => word.length >= 2 && !ROLE_STOPWORDS.has(word));
+    return significant.length > 0 && significant.every(hasWord);
+  });
+}
+
+/**
+ * Fallback to previously ingested jobs when providers are throttled or returned
+ * nothing. Restricted to rows matching the requested roles — without this, a
+ * search for one role could return listings for a completely unrelated one.
+ *
+ * Matching happens in JS rather than as a PostgREST `or(...)` filter: the filter
+ * syntax cannot be exercised without a live database, and a malformed filter
+ * would silently make this fallback return nothing at all.
+ */
+async function storeFallback(
+  supabase: SupabaseClient,
+  needed: boolean,
+  criteria: SearchCriteria,
+): Promise<NormalizedJobRow[]> {
   if (!needed) return [];
   const { data, error } = await supabase
     .from('jobs')
     .select(JOB_COLUMNS)
     .order('posted_at', { ascending: false, nullsFirst: false })
     .limit(300);
-  return error ? [] : ((data ?? []) as NormalizedJobRow[]);
+  if (error) return [];
+  return ((data ?? []) as NormalizedJobRow[]).filter((row) => matchesRoles(row.title, criteria.roles));
 }
 
 function applyHardFilters(rows: NormalizedJobRow[], criteria: SearchCriteria): { kept: NormalizedJobRow[]; warnings: string[] } {
@@ -137,6 +218,10 @@ function applyHardFilters(rows: NormalizedJobRow[], criteria: SearchCriteria): {
   const byId = new Map<string, NormalizedJobRow>();
   for (const row of kept) byId.set(row.id, row);
   kept = [...byId.values()];
+
+  // Drop listings the provider told us have closed.
+  const now = Date.now();
+  kept = kept.filter((j) => !j.expires_at || new Date(j.expires_at).getTime() > now);
 
   if (criteria.workMode !== 'any') {
     kept = kept.filter((j) => j.remote_status === criteria.workMode);
@@ -200,7 +285,7 @@ export async function runSearch(criteria: SearchCriteria, supabase: SupabaseClie
   }
 
   const ingested = await ingest(outcomes, supabase);
-  const fallback = await storeFallback(supabase, anyThrottled || ingested.length === 0);
+  const fallback = await storeFallback(supabase, anyThrottled || ingested.length === 0, criteria);
   const { kept, warnings: filterWarnings } = applyHardFilters([...ingested, ...fallback], criteria);
   warnings.push(...filterWarnings);
 
