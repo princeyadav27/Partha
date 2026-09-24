@@ -215,7 +215,7 @@ export default function Profile() {
       <div className="page-heading">
         <h1>Profile</h1>
         <p className="lede">
-          A structured picture of your background. Gorkha uses it to find relevant jobs and explain
+          A structured picture of your background. Partha uses it to find relevant jobs and explain
           why they fit — every AI suggestion is editable.
         </p>
       </div>
@@ -259,7 +259,7 @@ export default function Profile() {
             {resume?.file_name && <span className="muted">{resume.file_name}</span>}
           </div>
           <p className="muted">
-            This is the text Gorkha read from your file. Fix anything that looks wrong before
+            This is the text Partha read from your file. Fix anything that looks wrong before
             analyzing — the analysis can only use what is written here.
           </p>
           <textarea

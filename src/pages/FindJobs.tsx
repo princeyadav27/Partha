@@ -165,7 +165,7 @@ export default function FindJobs() {
         <div className="card">
           <h2>Build your profile first</h2>
           <p className="muted">
-            Gorkha searches based on your resume and target roles. Upload your resume and review
+            Partha searches based on your resume and target roles. Upload your resume and review
             your profile, then come back here.
           </p>
           <Link to="/profile" className="btn btn-primary">

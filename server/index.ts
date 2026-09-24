@@ -540,5 +540,5 @@ app.use((req, res, next) => {
 
 const PORT = Number(process.env.PORT) || 8080;
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Gorkha listening on port ${PORT}`);
+  console.log(`Partha listening on port ${PORT}`);
 });

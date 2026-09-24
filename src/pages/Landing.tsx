@@ -5,12 +5,12 @@ const STEPS = [
   {
     n: '01',
     title: 'Bring your story',
-    body: 'Upload a résumé once. Everything downstream is tuned to your experience — no forms, no templates.',
+    body: 'Upload a résumé once. Everything downstream is tuned to your experience — no forms, no templates, no re-typing your life.',
   },
   {
     n: '02',
     title: 'Search with intent',
-    body: 'Pick your target regions and roles. Listings arrive clean, de-duplicated, and ranked by fit, not ad spend.',
+    body: 'Pick your target regions and roles. Listings arrive clean, de-duplicated, and ranked by fit — not by ad spend.',
   },
   {
     n: '03',
@@ -25,40 +25,61 @@ const PRINCIPLES = [
   { k: 'Yours to keep', v: 'Your data stays in your workspace. Delete it and it is gone.' },
 ];
 
+const SOURCES = ['himalayas', 'RemoteOK', 'ArbeitNow', 'adzuna'];
+
 export default function Landing() {
   return (
     <div className="landing">
       <section className="hero">
         <div className="hero-inner">
           <Reveal>
-            <p className="hero-eyebrow">Gorkha · the job hunt, quietly done</p>
+            <Link className="hero-badge" to="/profile">
+              <span className="badge-new">New</span>
+              <span>Partha now reads your résumé for you</span>
+              <span className="badge-arrow" aria-hidden="true">
+                ›
+              </span>
+            </Link>
           </Reveal>
-          <Reveal delay={120}>
+
+          <Reveal delay={110}>
             <h1 className="hero-title">
-              The right role,
+              Search less.
               <br />
-              <em>found with patience.</em>
+              Match more. <span className="hero-mark">Aim true.</span>
             </h1>
           </Reveal>
-          <Reveal delay={240}>
+
+          <Reveal delay={220}>
             <p className="hero-sub">
-              A calm workspace for serious job hunts — tailored search, honest matching,
-              and a single board that remembers everything you did.
+              Partha pulls live roles from every board you care about, matches each one against
+              your résumé with reasons you can actually read, and keeps the whole hunt on one
+              quiet, honest page.
             </p>
           </Reveal>
-          <Reveal delay={360}>
+
+          <Reveal delay={330}>
             <div className="hero-actions">
-              <Link className="btn btn-primary btn-lg" to="/resume">
+              <Link className="btn btn-hero" to="/profile">
                 Start with your résumé
               </Link>
-              <Link className="btn btn-ghost btn-lg" to="/jobs">
-                Browse listings first
+              <Link className="btn btn-hero-quiet" to="/jobs">
+                Browse live jobs
               </Link>
             </div>
-            <div className="hero-hint">Three steps. No signup theatre.</div>
+          </Reveal>
+
+          <Reveal delay={460}>
+            <div className="hero-proofs">
+              <span className="proofs-label">Live roles pulled from</span>
+              <ul className="proofs-row">
+                {SOURCES.map((s) => (
+                  <li key={s}>{s}</li>
+                ))}
+              </ul>
+            </div>
           </Reveal>
         </div>
-        <div className="hero-rule" aria-hidden="true" />
       </section>
 
       <section className="steps">
@@ -76,22 +97,27 @@ export default function Landing() {
       </section>
 
       <section className="principles">
-        <div className="principles-inner">
+        <div className="container">
           <Reveal>
-            <h2>Principles</h2>
+            <div className="principles-card">
+              <h2>Principles</h2>
+              <ul>
+                {PRINCIPLES.map((p, i) => (
+                  <PrincipleRow key={p.k} p={p} index={i} />
+                ))}
+              </ul>
+            </div>
           </Reveal>
-          <ul>
-            {PRINCIPLES.map((p, i) => (
-              <PrincipleRow key={p.k} p={p} index={i} />
-            ))}
-          </ul>
         </div>
       </section>
 
       <section className="closing">
         <Reveal>
           <h2>Begin the search.</h2>
-          <Link className="btn btn-primary btn-lg" to="/resume">
+          <p className="closing-sub">
+            One résumé. Every board. A single board of record for what happened next.
+          </p>
+          <Link className="btn btn-hero" to="/profile">
             Upload résumé
           </Link>
         </Reveal>
