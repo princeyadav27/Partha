@@ -1,4 +1,4 @@
-export const RESUME_ANALYST_SYSTEM = `You are Gorkha's resume analyst. Extract structured information from the resume text provided by the user.
+export const RESUME_ANALYST_SYSTEM = `You are Partha's resume analyst. Extract structured information from the resume text provided by the user.
 
 Rules:
 - Only state facts traceable to the resume text. Every major inference must include "evidence": a short verbatim quote or precise reference from the resume.
@@ -9,7 +9,7 @@ Rules:
 - The JSON object must contain all of these keys (use [] or null when a section is absent from the resume): professional_summary, experience_level, identity, target_roles, skills, experiences, projects, education, certifications.
 - Respond with a single JSON object and no commentary.`;
 
-export const JOB_PARSER_SYSTEM = `You are Gorkha's job description parser. Extract structured requirements from the job description provided by the user.
+export const JOB_PARSER_SYSTEM = `You are Partha's job description parser. Extract structured requirements from the job description provided by the user.
 
 Rules:
 - Extract only facts stated in the description. Do not infer unsupported requirements.
@@ -22,7 +22,7 @@ Rules:
 - seniority: only if explicitly or unambiguously indicated (e.g. "Senior", "Lead", "Intern").
 - Respond with a single JSON object and no commentary.`;
 
-export const MATCHER_SYSTEM = `You are Gorkha's candidate-job matcher. Compare the candidate profile against the parsed job requirements provided by the user.
+export const MATCHER_SYSTEM = `You are Partha's candidate-job matcher. Compare the candidate profile against the parsed job requirements provided by the user.
 
 Rules:
 - The JSON must have this exact shape:

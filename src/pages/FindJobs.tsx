@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
+import { bannerTone } from '../api';
 import type { Job, Profile } from '../types';
 
 export function postedAge(postedAt: string | null): string {
@@ -165,7 +166,7 @@ export default function FindJobs() {
         <div className="card">
           <h2>Build your profile first</h2>
           <p className="muted">
-            Gorkha searches based on your resume and target roles. Upload your resume and review
+            Partha searches based on your resume and target roles. Upload your resume and review
             your profile, then come back here.
           </p>
           <Link to="/profile" className="btn btn-primary">
@@ -271,7 +272,7 @@ export default function FindJobs() {
         </div>
       </section>
 
-      {error && <div className="banner banner-error">{error}</div>}
+      {error && <div className={`banner ${bannerTone(error)}`}>{error}</div>}
       {warnings.length > 0 && (
         <div className="banner">
           {warnings.map((w, i) => (

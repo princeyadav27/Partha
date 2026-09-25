@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
+import { bannerTone } from '../api';
 import type { SavedJob } from '../types';
 import { STATUS_LABELS } from './Saved';
 
@@ -144,7 +145,7 @@ export default function Applications() {
         </p>
       </div>
 
-      {error && <div className="banner banner-error">{error}</div>}
+      {error && <div className={`banner ${bannerTone(error)}`}>{error}</div>}
 
       {saved.length === 0 ? (
         <div className="card">

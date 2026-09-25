@@ -5,7 +5,7 @@ import multer from 'multer';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chatJSON, aiConfigured } from './lib/ai.js';
-import { runSearch } from './lib/ingest.js';
+import { runSearch, type NormalizedJobRow } from './lib/ingest.js';
 import { expandTargetRoles } from './lib/planner.js';
 import { adzunaConfigured, type EmploymentType } from './lib/providers/index.js';
 import { extractResumeText } from './lib/extract.js';
@@ -53,7 +53,11 @@ function redact(text: string): string {
 
 function requireDb(res: express.Response): boolean {
   if (!dbConfigured() || !getSupabase()) {
-    res.status(503).json({ error: 'Database is not configured. Set SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY.' });
+    res.status(503).json({
+      code: 'demo',
+      error:
+        'Demo mode: no database connected. Browsing live jobs works — uploads, saves, and applications light up once a database is connected.',
+    });
     return false;
   }
   return true;
@@ -210,8 +214,7 @@ const WORK_MODES = new Set(['any', 'remote', 'hybrid', 'onsite']);
 const EMPLOYMENT_TYPES = new Set(['full_time', 'part_time', 'contract', 'internship']);
 
 app.post('/api/jobs/search', async (req, res) => {
-  if (!requireDb(res)) return;
-  const supabase = getSupabase()!;
+  const supabase = getSupabase();
   const body = req.body ?? {};
   const roles: string[] = Array.isArray(body.target_roles)
     ? body.target_roles.map((r: unknown) => String(r).trim()).filter(Boolean).slice(0, 5)
@@ -237,7 +240,8 @@ app.post('/api/jobs/search', async (req, res) => {
     const result = await runSearch({ roles: terms, countries, location, workMode, employmentTypes, postedWithinDays }, supabase);
 
     let jobs = result.jobs;
-    if (jobs.length > 0) {
+    const warnings = [...result.warnings];
+    if (supabase && jobs.length > 0) {
       const ids = jobs.map((j) => j.id);
       const { data: matches } = await supabase
         .from('job_matches')
@@ -246,10 +250,20 @@ app.post('/api/jobs/search', async (req, res) => {
       const summaryById = new Map((matches ?? []).map((m) => [m.job_id, m.summary as string | null]));
       jobs = jobs.map((j) => ({ ...j, match_summary: summaryById.get(j.id) ?? null }));
     }
+    if (!supabase) {
+      for (const j of jobs) demoJobs.set(j.id, j as unknown as Record<string, unknown>);
+      if (jobs.length === 0) {
+        jobs = sampleJobs();
+        for (const j of jobs) demoJobs.set(j.id, j as unknown as Record<string, unknown>);
+        warnings.push(
+          'Demo mode: the live boards did not respond from this environment — showing clearly-labelled sample listings so you can explore the full experience.',
+        );
+      }
+    }
 
     res.json({
       jobs,
-      warnings: result.warnings,
+      warnings,
       sources_used: result.sources_used,
       sources_failed: result.sources_failed,
     });
@@ -265,6 +279,71 @@ app.post('/api/jobs/search', async (req, res) => {
  */
 const PARSE_FAILURE_TTL_MS = 10 * 60 * 1000;
 const parseFailures = new Map<string, { at: number; error: string }>();
+
+/**
+ * Demo mode (no database): jobs returned by a search are kept in process
+ * memory so the job detail page can still open them.
+ */
+const demoJobs = new Map<string, Record<string, unknown>>();
+
+/**
+ * Clearly-labelled sample listings for demo mode (no database connected and
+ * the live boards unreachable from this environment). They exist so the
+ * browsing, detail, and match UI can be explored end to end.
+ */
+function sampleJobs(): NormalizedJobRow[] {
+  const day = 86_400_000;
+  const now = Date.now();
+  const at = (daysAgo: number) => new Date(now - daysAgo * day).toISOString();
+  const base = {
+    source: 'sample',
+    remote_status: 'remote' as const,
+    employment_type: 'full_time' as const,
+    expires_at: null,
+    fetched_at: at(0),
+  };
+  return [
+    {
+      ...base,
+      id: 'demo-sample-1',
+      source_job_id: 'sample-1',
+      title: 'Frontend Engineer, Design Systems',
+      company: 'Sampleline Studio',
+      location: 'Bengaluru, IN',
+      country: 'in',
+      posted_at: at(1),
+      source_url: 'https://example.com/sample/sample-1',
+      description:
+        'Sampleline Studio keeps a small design-systems team that owns the component library, tokens, and documentation used by every product squad.\n\nYou would ship accessible React components, keep the visual language coherent, and pair with designers on new patterns. This is a sample listing shown in demo mode so you can explore the full experience.',
+    },
+    {
+      ...base,
+      id: 'demo-sample-2',
+      source_job_id: 'sample-2',
+      title: 'Product Engineer (Full-stack)',
+      company: 'Northwind Labs',
+      location: 'Berlin, DE',
+      country: 'de',
+      posted_at: at(3),
+      source_url: 'https://example.com/sample/sample-2',
+      description:
+        'Northwind Labs builds analytics tooling for logistics teams. Product engineers own features end to end: TypeScript in the browser, Node services behind it, and a say in the roadmap.\n\nThis is a sample listing shown in demo mode so you can explore the full experience.',
+    },
+    {
+      ...base,
+      id: 'demo-sample-3',
+      source_job_id: 'sample-3',
+      title: 'UI Engineer, Accessibility',
+      company: 'Acme Platforms',
+      location: 'Remote — EMEA',
+      country: 'gb',
+      posted_at: at(5),
+      source_url: 'https://example.com/sample/sample-3',
+      description:
+        'Acme Platforms is retrofitting a large enterprise suite for WCAG 2.2 AA. You would audit flows, fix keyboard and screen-reader behaviour, and build the regression tests that keep it fixed.\n\nThis is a sample listing shown in demo mode so you can explore the full experience.',
+    },
+  ];
+}
 
 async function ensureRequirements(jobId: string): Promise<JobRequirements | null | 'unconfigured' | { error: string }> {
   const supabase = getSupabase()!;
@@ -320,28 +399,42 @@ function isEmptyRequirements(req: unknown): boolean {
 }
 
 app.get('/api/jobs/:id', async (req, res) => {
-  if (!requireDb(res)) return;
-  const supabase = getSupabase()!;
-  const { data: job, error } = await supabase.from('jobs').select('*').eq('id', req.params.id).maybeSingle();
-  if (error) return res.status(500).json({ error: redact(error.message) });
+  const supabase = getSupabase();
+  let job: Record<string, unknown> | null = null;
+  if (supabase) {
+    const { data, error } = await supabase
+      .from('jobs')
+      .select('*')
+      .eq('id', req.params.id)
+      .maybeSingle();
+    if (error) return res.status(500).json({ error: redact(error.message) });
+    job = (data as Record<string, unknown> | null) ?? null;
+  } else {
+    job = demoJobs.get(req.params.id) ?? null;
+  }
   if (!job) return res.status(404).json({ error: 'Job not found.' });
   let requirements = null;
   let requirements_warning: string | null = null;
-  try {
-    const result = await ensureRequirements(job.id);
-    if (typeof result === 'object' && result !== null && 'error' in result) {
-      requirements_warning = redact(
-        `Automatic parsing failed for this posting (${result.error.slice(0, 160)}). You can still read the original description.`,
-      );
-    } else if (result === 'unconfigured') {
-      requirements_warning = 'AI parsing is not configured. Add an AI provider key in project Secrets.';
-    } else if (result === null) {
-      requirements_warning = 'This job description could not be parsed automatically.';
-    } else {
-      requirements = result;
+  if (!supabase) {
+    requirements_warning =
+      'Demo mode: requirement parsing needs a connected database and AI key. The original description is below.';
+  } else {
+    try {
+      const result = await ensureRequirements(job.id as string);
+      if (typeof result === 'object' && result !== null && 'error' in result) {
+        requirements_warning = redact(
+          `Automatic parsing failed for this posting (${result.error.slice(0, 160)}). You can still read the original description.`,
+        );
+      } else if (result === 'unconfigured') {
+        requirements_warning = 'AI parsing is not configured. Add an AI provider key in project Secrets.';
+      } else if (result === null) {
+        requirements_warning = 'This job description could not be parsed automatically.';
+      } else {
+        requirements = result;
+      }
+    } catch (error) {
+      requirements_warning = (error as Error).message;
     }
-  } catch (error) {
-    requirements_warning = (error as Error).message;
   }
   res.json({ job, requirements, requirements_warning });
 });
@@ -540,5 +633,5 @@ app.use((req, res, next) => {
 
 const PORT = Number(process.env.PORT) || 8080;
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Gorkha listening on port ${PORT}`);
+  console.log(`Partha listening on port ${PORT}`);
 });
