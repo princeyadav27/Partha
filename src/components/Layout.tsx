@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import Footer from './Footer';
 import Logo from './Logo';
 
 export default function Layout() {
@@ -36,12 +37,7 @@ export default function Layout() {
           )}
         </main>
 
-        <footer className="site-footer">
-          <div className="container site-footer-inner">
-            <span>Partha — find work that fits, and act on it.</span>
-            <span className="footer-tag">many boards · one true aim</span>
-          </div>
-        </footer>
+        <Footer />
       </div>
     </div>
   );
